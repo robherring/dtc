@@ -95,6 +95,7 @@ static const char * const usage_opts_help[] = {
 	"\n\tOutput formats are:\n"
 	 "\t\tdts - device tree source text\n"
 	 "\t\tdtb - device tree blob\n"
+	 "\t\tyaml - device tree encoded as YAML\n"
 	 "\t\tasm - assembler source",
 	"\n\tBlob version to produce, defaults to "stringify(DEFAULT_FDT_VERSION)" (for dtb and asm output)",
 	"\n\tOutput dependency file",
@@ -128,6 +129,8 @@ static const char *guess_type_by_name(const char *fname, const char *fallback)
 		return fallback;
 	if (!strcasecmp(s, ".dts"))
 		return "dts";
+	if (!strcasecmp(s, ".yaml"))
+		return "yaml";
 	if (!strcasecmp(s, ".dtb"))
 		return "dtb";
 	return fallback;
@@ -350,6 +353,8 @@ int main(int argc, char *argv[])
 
 	if (streq(outform, "dts")) {
 		dt_to_source(outf, dti);
+	} else if (streq(outform, "yaml")) {
+		dt_to_yaml(outf, dti);
 	} else if (streq(outform, "dtb")) {
 		dt_to_blob(outf, dti, outversion);
 	} else if (streq(outform, "asm")) {

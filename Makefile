@@ -35,6 +35,7 @@ INCLUDEDIR = $(PREFIX)/include
 HOSTOS := $(shell uname -s | tr '[:upper:]' '[:lower:]' | \
 	    sed -e 's/\(cygwin\|msys\).*/\1/')
 
+LDFLAGS = -L/usr/local/lib -lyaml
 ifeq ($(HOSTOS),darwin)
 SHAREDLIB_EXT     = dylib
 SHAREDLIB_CFLAGS  = -fPIC

@@ -8,6 +8,7 @@ DTC_SRCS = \
 	data.c \
 	dtc.c \
 	flattree.c \
+	yamltree.c \
 	fstree.c \
 	livetree.c \
 	srcpos.c \
