@@ -61,24 +61,14 @@ static bool isstring(char c)
 		|| strchr("\a\b\t\n\v\f\r", c));
 }
 
-static void write_propval_string(FILE *f, struct data val)
+static void write_propval_string(FILE *f, const char *s, size_t len)
 {
-	const char *str = val.val;
-	int i;
-	struct marker *m = val.markers;
+	const char *end = s + len - 1;
+	assert(*end == '\0');
 
-	assert(str[val.len-1] == '\0');
-
-	while (m && (m->offset == 0)) {
-		if (m->type == LABEL)
-			fprintf(f, "%s: ", m->ref);
-		m = m->next;
-	}
 	fprintf(f, "\"");
-
-	for (i = 0; i < (val.len-1); i++) {
-		char c = str[i];
-
+	while (s < end) {
+		char c = *s++;
 		switch (c) {
 		case '\a':
 			fprintf(f, "\\a");
@@ -108,129 +98,160 @@ static void write_propval_string(FILE *f, struct data val)
 			fprintf(f, "\\\"");
 			break;
 		case '\0':
-			fprintf(f, "\", ");
-			while (m && (m->offset <= (i + 1))) {
-				if (m->type == LABEL) {
-					assert(m->offset == (i+1));
-					fprintf(f, "%s: ", m->ref);
-				}
-				m = m->next;
-			}
-			fprintf(f, "\"");
+			fprintf(f, "\", \"");
 			break;
 		default:
 			if (isprint((unsigned char)c))
 				fprintf(f, "%c", c);
 			else
-				fprintf(f, "\\x%02hhx", c);
+				fprintf(f, "\\x%02"PRIx8, c);
 		}
 	}
 	fprintf(f, "\"");
-
-	/* Wrap up any labels at the end of the value */
-	for_each_marker_of_type(m, LABEL) {
-		assert (m->offset == val.len);
-		fprintf(f, " %s:", m->ref);
-	}
 }
 
-static void write_propval_cells(FILE *f, struct data val)
+static void write_propval_int(FILE *f, const char *p, size_t len, size_t width)
 {
-	void *propend = val.val + val.len;
-	fdt32_t *cp = (fdt32_t *)val.val;
-	struct marker *m = val.markers;
+	const char *end = p + len - (width - 1);
+	assert(len % width == 0);
 
-	fprintf(f, "<");
-	for (;;) {
-		while (m && (m->offset <= ((char *)cp - val.val))) {
-			if (m->type == LABEL) {
-				assert(m->offset == ((char *)cp - val.val));
-				fprintf(f, "%s: ", m->ref);
-			}
-			m = m->next;
-		}
-
-		fprintf(f, "0x%x", fdt32_to_cpu(*cp++));
-		if ((void *)cp >= propend)
+	for (; p < end; p += width) {
+		switch (width) {
+		case 1:
+			fprintf(f, " %02"PRIx8, *(const uint8_t*)p);
 			break;
-		fprintf(f, " ");
+		case 2:
+			fprintf(f, " 0x%02"PRIx16, fdt16_to_cpu(*(const fdt16_t*)p));
+			break;
+		case 4:
+			fprintf(f, " 0x%02"PRIx32, fdt32_to_cpu(*(const fdt32_t*)p));
+			break;
+		case 8:
+			fprintf(f, " 0x%02"PRIx64, fdt64_to_cpu(*(const fdt64_t*)p));
+			break;
+		}
 	}
-
-	/* Wrap up any labels at the end of the value */
-	for_each_marker_of_type(m, LABEL) {
-		assert (m->offset == val.len);
-		fprintf(f, " %s:", m->ref);
-	}
-	fprintf(f, ">");
 }
 
-static void write_propval_bytes(FILE *f, struct data val)
+static struct marker* next_type_marker(struct marker *m)
 {
-	void *propend = val.val + val.len;
-	const char *bp = val.val;
-	struct marker *m = val.markers;
-
-	fprintf(f, "[");
-	for (;;) {
-		while (m && (m->offset == (bp-val.val))) {
-			if (m->type == LABEL)
-				fprintf(f, "%s: ", m->ref);
-			m = m->next;
-		}
-
-		fprintf(f, "%02hhx", (unsigned char)(*bp++));
-		if ((const void *)bp >= propend)
-			break;
-		fprintf(f, " ");
-	}
-
-	/* Wrap up any labels at the end of the value */
-	for_each_marker_of_type(m, LABEL) {
-		assert (m->offset == val.len);
-		fprintf(f, " %s:", m->ref);
-	}
-	fprintf(f, "]");
+	while (m && (m->type == LABEL || m->type == REF_PHANDLE || m->type == REF_PATH))
+		m = m->next;
+	return m;
 }
 
+const char * delim_start[] = {
+	[MARKER_UINT8] = "[",
+	[MARKER_UINT16] = "/bits/ 16 <",
+	[MARKER_UINT32] = "<",
+	[MARKER_UINT64] = "/bits/ 64 <",
+	[MARKER_STRING] = "",
+};
+const char * delim_end[] = {
+	[MARKER_UINT8] = " ]",
+	[MARKER_UINT16] = " >",
+	[MARKER_UINT32] = " >",
+	[MARKER_UINT64] = " >",
+	[MARKER_STRING] = "",
+};
 static void write_propval(FILE *f, struct property *prop)
 {
-	int len = prop->val.len;
-	const char *p = prop->val.val;
-	struct marker *m = prop->val.markers;
+	size_t len = prop->val.len;
+	size_t chunk_len;
+	struct marker *next_type, *m = prop->val.markers;
+	struct marker dummy_marker;
 	int nnotstring = 0, nnul = 0;
 	int nnotstringlbl = 0, nnotcelllbl = 0;
 	int i;
+	enum markertype emit_type = MARKER_NONE;
 
 	if (len == 0) {
 		fprintf(f, ";\n");
 		return;
 	}
 
-	for (i = 0; i < len; i++) {
-		if (! isstring(p[i]))
-			nnotstring++;
-		if (p[i] == '\0')
-			nnul++;
-	}
-
-	for_each_marker_of_type(m, LABEL) {
-		if ((m->offset > 0) && (prop->val.val[m->offset - 1] != '\0'))
-			nnotstringlbl++;
-		if ((m->offset % sizeof(cell_t)) != 0)
-			nnotcelllbl++;
-	}
-
 	fprintf(f, " = ");
-	if ((p[len-1] == '\0') && (nnotstring == 0) && (nnul < (len-nnul))
-	    && (nnotstringlbl == 0)) {
-		write_propval_string(f, prop->val);
-	} else if (((len % sizeof(cell_t)) == 0) && (nnotcelllbl == 0)) {
-		write_propval_cells(f, prop->val);
-	} else {
-		write_propval_bytes(f, prop->val);
+
+	next_type = next_type_marker(m);
+	chunk_len = (next_type ? next_type->offset : len);
+	if (chunk_len) {
+		/* data type information missing, need to guess */
+		const char *p = prop->val.val;
+		for (i = 0; i < chunk_len; i++) {
+			if (! isstring(p[i]))
+				nnotstring++;
+			if (p[i] == '\0')
+				nnul++;
+		}
+
+		for_each_marker_of_type(m, LABEL) {
+			if (m->offset >= chunk_len)
+				break;
+			if ((m->offset > 0) && (prop->val.val[m->offset - 1] != '\0'))
+				nnotstringlbl++;
+			if ((m->offset % sizeof(cell_t)) != 0)
+				nnotcelllbl++;
+		}
+
+		if ((p[chunk_len-1] == '\0') && (nnotstring == 0) && (nnul < (chunk_len-nnul))
+		    && (nnotstringlbl == 0)) {
+			dummy_marker.type = MARKER_STRING;
+		} else if (((chunk_len % sizeof(cell_t)) == 0) && (nnotcelllbl == 0)) {
+			dummy_marker.type = MARKER_UINT32;
+		} else {
+			dummy_marker.type = MARKER_UINT8;
+		}
+
+		dummy_marker.next = prop->val.markers;
+		dummy_marker.offset = 0;
+		dummy_marker.ref = NULL;
+		m = &dummy_marker;
 	}
 
-	fprintf(f, ";\n");
+	for_each_marker(m) {
+		chunk_len = (m->next ? m->next->offset : len) - m->offset;
+		const char *p = &prop->val.val[m->offset];
+
+		switch(m->type) {
+		case MARKER_UINT8:
+		case MARKER_UINT16:
+		case MARKER_UINT32:
+		case MARKER_UINT64:
+		case MARKER_STRING:
+			if (emit_type != MARKER_NONE)
+				fprintf(f, "%s, ", delim_end[emit_type]);
+			emit_type = m->type;
+			fprintf(f, "%s", delim_start[emit_type]);
+			break;
+		case LABEL:
+			fprintf(f, " %s:", m->ref);
+			break;
+		default:
+			break;
+		}
+
+		if (chunk_len <= 0)
+			continue;
+
+		switch(emit_type) {
+		case MARKER_UINT16:
+			write_propval_int(f, p, chunk_len, 2);
+			break;
+		case MARKER_UINT32:
+			write_propval_int(f, p, chunk_len, 4);
+			break;
+		case MARKER_UINT64:
+			write_propval_int(f, p, chunk_len, 8);
+			break;
+		case MARKER_STRING:
+			write_propval_string(f, p, chunk_len);
+			break;
+		default:
+			write_propval_int(f, p, chunk_len, 1);
+		}
+	}
+
+	fprintf(f, "%s;\n", delim_end[emit_type] ? : "");
 }
 
 static void write_tree_source_node(FILE *f, struct node *tree, int level)
