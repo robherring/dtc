@@ -1,0 +1,7 @@
+/dts-v1/;
+
+/ {
+	chosen {
+		bootargs = <0xdeadbeef>;
+	};
+};

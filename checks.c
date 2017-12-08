@@ -636,6 +636,37 @@ static void check_names_is_string_list(struct check *c, struct dt_info *dti,
 }
 WARNING(names_is_string_list, check_names_is_string_list, NULL);
 
+static void check_chosen_node(struct check *c, struct dt_info *dti,
+				    struct node *node)
+{
+	struct property *prop;
+
+	if (!streq(node->name, "chosen"))
+		return;
+
+	if (node->parent->parent) {
+		FAIL(c, dti, "chosen node must be at root node (%s)",
+		     node->parent->name);
+	}
+
+	prop = get_property(node, "bootargs");
+	if (prop) {
+		c->data = prop->name;
+		check_is_string(c, dti, node);
+	}
+
+	prop = get_property(node, "linux,stdout-path");
+	if (prop)
+		FAIL(c, dti, "Use 'stdout-path' instead of 'linux,stdout-path'");
+
+	prop = get_property(node, "stdout-path");
+	if (prop) {
+		c->data = prop->name;
+		check_is_string(c, dti, node);
+	}
+}
+WARNING(chosen_node, check_chosen_node, NULL);
+
 static void check_alias_paths(struct check *c, struct dt_info *dti,
 				    struct node *node)
 {
@@ -1377,6 +1408,7 @@ static struct check *check_table[] = {
 	&interrupts_property,
 
 	&alias_paths,
+	&chosen_node,
 
 	&always_fail,
 };
