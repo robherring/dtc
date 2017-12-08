@@ -1,0 +1,9 @@
+/dts-v1/;
+
+/ {
+	chosen {
+		linux,stdout-path = "foo";
+		stdout-path = <1>;
+	};
+
+};
