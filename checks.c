@@ -19,6 +19,7 @@
  */
 
 #include "dtc.h"
+#include "srcpos.h"
 
 #ifdef TRACE_CHECKS
 #define TRACE(c, ...) \
@@ -83,12 +84,30 @@ static inline void  PRINTF(5, 6) check_msg(struct check *c, struct dt_info *dti,
 	char buffer[MAX_MSG_LEN];
 	char *str = buffer;
 	char *end = str + MAX_MSG_LEN;
+	struct srcpos *pos = NULL;
+	char *file_str;
 
 	if (!(c->warn && (quiet < 1)) && !(c->error && (quiet < 2)))
 		return;
 
-	str += snprintf(str, end - str, "%s: %s (%s): ",
-			strcmp(dti->outname, "-") ? dti->outname : "<stdout>",
+	if (prop && prop->srcpos)
+		pos = prop->srcpos;
+	else if (node && node->srcpos)
+		pos = node->srcpos;
+
+	if (pos) {
+		file_str = srcpos_string(pos);
+		strncpy(str, file_str, end - str);
+		free(file_str);
+	} else if (streq(dti->outname, "-")) {
+		strncpy(str, "<stdout>", end - str);
+	} else {
+		strncpy(str, dti->outname, end - str);
+	}
+	str += strlen(str);
+	assert(str < end);
+
+	str += snprintf(str, end - str, ": %s (%s): ",
 			(c->error) ? "ERROR" : "Warning", c->name);
 	assert(str < end);
 
@@ -106,6 +125,18 @@ static inline void  PRINTF(5, 6) check_msg(struct check *c, struct dt_info *dti,
 	va_end(ap);
 
 	strcpy(str, "\n");
+
+	if (!prop && pos) {
+		pos = node->srcpos;
+		while (pos->next) {
+			pos = pos->next;
+
+			file_str = srcpos_string(pos);
+			str += snprintf(str, end - str, "  also defined at %s\n", file_str);
+			free(file_str);
+			assert(str < end);
+		}
+	}
 
 	fputs(buffer, stderr);
 }
