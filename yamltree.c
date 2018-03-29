@@ -47,7 +47,7 @@ static void yaml_propval_int(yaml_emitter_t *emitter, char *data, int len, int w
 {
 	yaml_event_t event;
 	char *dataend = data + len;
-	void *tag = YAML_INT_TAG;
+	void *tag;
 	char buf[32];
 
 	if (len % width) {
@@ -58,8 +58,8 @@ static void yaml_propval_int(yaml_emitter_t *emitter, char *data, int len, int w
 	switch(width) {
 		case 1: tag = "!u8"; break;
 		case 2: tag = "!u16"; break;
-		 tag = YAML_SEQ_TAG; break;
 		case 8: tag = "!u64"; break;
+		case 4: tag = "!u32"; break;
 		default:
 			die("Invalid width %i", width);
 	}
@@ -305,4 +305,3 @@ void dt_to_yaml(FILE *f, struct dt_info *dti)
 
 	yaml_emitter_delete(&emitter);
 }
-
