@@ -35,7 +35,7 @@ INCLUDEDIR = $(PREFIX)/include
 HOSTOS := $(shell uname -s | tr '[:upper:]' '[:lower:]' | \
 	    sed -e 's/\(cygwin\|msys\).*/\1/')
 
-LDFLAGS = -L/usr/local/lib -lyaml
+LDLIBS = -lyaml
 ifeq ($(HOSTOS),darwin)
 SHAREDLIB_EXT     = dylib
 SHAREDLIB_CFLAGS  = -fPIC
@@ -310,7 +310,7 @@ clean: libfdt_clean pylibfdt_clean tests_clean
 #
 %: %.o
 	@$(VECHO) LD $@
-	$(LINK.c) -o $@ $^
+	$(LINK.c) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
 	@$(VECHO) CC $@
