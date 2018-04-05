@@ -79,7 +79,6 @@ static void yaml_propval_int(yaml_emitter_t *emitter, char *data, int len, int w
 			break;
 		case 4:
 			sprintf(buf, "0x%"PRIx32, fdt32_to_cpu(*(fdt32_t*)data));
-			data += 4;
 			break;
 		case 8:
 			sprintf(buf, "0x%"PRIx64, fdt64_to_cpu(*(fdt64_t*)data));
