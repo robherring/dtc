@@ -72,29 +72,42 @@ struct check {
 #define CHECK(nm_, fn_, d_, ...) \
 	CHECK_ENTRY(nm_, fn_, d_, false, false, __VA_ARGS__)
 
+#define MAX_MSG_LEN 1024
+
 static inline void  PRINTF(5, 6) check_msg(struct check *c, struct dt_info *dti,
 					   struct node *node,
 					   struct property *prop,
 					   const char *fmt, ...)
 {
 	va_list ap;
+	char buffer[MAX_MSG_LEN];
+	char *str = buffer;
+	char *end = str + MAX_MSG_LEN;
 
 	if (!(c->warn && (quiet < 1)) && !(c->error && (quiet < 2)))
 		return;
 
-	fprintf(stderr, "%s: %s (%s): ",
-		strcmp(dti->outname, "-") ? dti->outname : "<stdout>",
-		(c->error) ? "ERROR" : "Warning", c->name);
+	str += snprintf(str, end - str, "%s: %s (%s): ",
+			strcmp(dti->outname, "-") ? dti->outname : "<stdout>",
+			(c->error) ? "ERROR" : "Warning", c->name);
+	assert(str < end);
+
 	if (node) {
-		fprintf(stderr, "%s", node->fullpath);
 		if (prop)
-			fprintf(stderr, ":%s", prop->name);
-		fputs(": ", stderr);
+			str += snprintf(str, end - str, "%s:%s: ", node->fullpath, prop->name);
+		else
+			str += snprintf(str, end - str, "%s: ", node->fullpath);
+		assert(str < end);
 	}
+
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	str += vsnprintf(str, end - str, fmt, ap);
+	assert(str < end);
 	va_end(ap);
-	fprintf(stderr, "\n");
+
+	strcpy(str, "\n");
+
+	fputs(buffer, stderr);
 }
 
 #define FAIL(c, dti, node, ...)						\
