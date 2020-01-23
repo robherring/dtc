@@ -30,6 +30,7 @@ LIBFDT_1.2 {
 		fdt_setprop_inplace;
 		fdt_nop_property;
 		fdt_nop_node;
+		fdt_move_up_node;
 		fdt_create;
 		fdt_add_reservemap_entry;
 		fdt_finish_reservemap;

@@ -92,3 +92,35 @@ int fdt_nop_node(void *fdt, int nodeoffset)
 			endoffset - nodeoffset);
 	return 0;
 }
+
+int fdt_move_up_node(void *fdt, int parentoffset, int nodeoffset)
+{
+	int endoffset, propoffset;
+	fdt32_t *tagp;
+	const char *pname;
+
+	/* Remove any parent node properties present in child node */
+	fdt_for_each_property_offset(propoffset, fdt, nodeoffset) {
+		fdt_getprop_by_offset(fdt, propoffset, &pname, NULL);
+		if (fdt_getprop(fdt, parentoffset, pname, NULL))
+			fdt_nop_property(fdt, parentoffset, pname);
+	}
+
+	propoffset = fdt_first_property_offset(fdt, nodeoffset);
+	if (propoffset < 0)
+		return propoffset;
+
+	endoffset = fdt_node_end_offset_(fdt, nodeoffset);
+	if (endoffset < 0)
+		return endoffset;
+
+	tagp = fdt_offset_ptr_w(fdt, endoffset, FDT_TAGSIZE);
+	while (fdt32_to_cpu(*tagp) != FDT_END_NODE)
+		tagp--;
+	fdt_nop_region_(tagp, 4);
+
+	fdt_nop_region_(fdt_offset_ptr_w(fdt, nodeoffset, 0),
+			propoffset - nodeoffset);
+
+	return 0;
+}

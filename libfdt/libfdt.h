@@ -2031,6 +2031,8 @@ int fdt_add_subnode(void *fdt, int parentoffset, const char *name);
  */
 int fdt_del_node(void *fdt, int nodeoffset);
 
+int fdt_move_up_node(void *fdt, int parentoffset, int nodeoffset);
+
 /**
  * fdt_overlay_apply - Applies a DT overlay on a base DT
  * @fdt: pointer to the base device tree blob

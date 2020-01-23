@@ -1,0 +1,63 @@
+/dts-v1/;
+
+/{
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	domains {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		domain@0 {
+			reg = <0>;
+
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-parent = <&intc>;
+
+			cpus {};
+			reserved-memory {};
+
+			bus {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				ranges;
+			};
+		};
+
+		domain@1 {
+			reg = <1>;
+
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-parent = <&r5_intc>;
+
+			cpus {};
+			reserved-memory {};
+
+
+			bus@20000000 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0x20000000 0 0 0x10000000>;
+
+				r5_intc: interrupt-controller@20000000 {
+					reg = <0x20000000 0x1000>;
+				};
+			};
+		};
+	};
+
+	bus@10000000 {
+		// Everything at root is indirect bus?
+
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0 0x10000000 0 0x10000000 0 0x1000000>;
+
+		intc: interrupt-controller@10000000 {
+			reg = <0 0x10000000 0 0x1000>;
+		};
+
+	};
+};
