@@ -61,6 +61,9 @@ else
 	LDLIBS_dtc += $(shell $(PKG_CONFIG) --libs yaml-0.1)
 endif
 
+CFLAGS += $(shell python3-config --cflags) -Wno-sign-compare
+LDLIBS_dtc += $(shell python3-config --libs)
+
 ifeq ($(HOSTOS),darwin)
 SHAREDLIB_EXT     = dylib
 SHAREDLIB_CFLAGS  = -fPIC

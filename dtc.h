@@ -308,6 +308,7 @@ void generate_local_fixups_tree(struct dt_info *dti, char *name);
 
 void parse_checks_option(bool warn, bool error, const char *arg);
 void process_checks(bool force, struct dt_info *dti);
+void dt_to_python(struct dt_info *dti);
 
 /* Flattened trees */
 

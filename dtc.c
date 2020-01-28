@@ -323,6 +323,7 @@ int main(int argc, char *argv[])
 	}
 
 	process_checks(force, dti);
+	dt_to_python(dti);
 
 	if (auto_label_aliases)
 		generate_label_tree(dti, "aliases", false);

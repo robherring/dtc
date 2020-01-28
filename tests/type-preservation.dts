@@ -17,6 +17,8 @@
 		int64-array = /bits/ 64 <0x100000000 0x00> int64_array_label_end:;
 		a-string-with-nulls = "foo\0bar", "baz";
 
+		a-phandle = <&subsub1 1 2>;
+
 		subsub1: subsubnode {
 			compatible = "subsubnode1", "subsubnode";
 

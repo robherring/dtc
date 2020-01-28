@@ -6,6 +6,7 @@
 #
 DTC_SRCS = \
 	checks.c \
+	yamlchecks.c \
 	data.c \
 	dtc.c \
 	flattree.c \
